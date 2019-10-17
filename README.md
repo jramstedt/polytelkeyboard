@@ -1,2 +1,4 @@
 # polytelkeyboard
-Comterm Polytel keyboard usb adapter with Digispark
+Controller for Comterm Polytel's keyboard
+Tested with Digispark
+Needs USB HID
