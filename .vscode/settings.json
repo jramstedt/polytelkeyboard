@@ -1,0 +1,8 @@
+{
+  "arduino.additionalUrls": [
+    "http://digistump.com/package_digistump_index.json"
+  ],
+  "files.associations": {
+    "initializer_list": "cpp"
+  }
+}
