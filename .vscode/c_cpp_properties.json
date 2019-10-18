@@ -5,15 +5,14 @@
             "includePath": [
                 "${env:LOCALAPPDATA}\\Arduino15\\packages\\digistump\\tools\\**",
                 "${env:LOCALAPPDATA}\\Arduino15\\packages\\digistump\\hardware\\avr\\1.6.7\\cores\\tiny\\**",
-                "${config:arduino.path}\\hardware\\tools\\avr\\avr\\include",
-                "${env:LOCALAPPDATA}\\Arduino15\\packages\\digistump\\hardware\\avr\\1.6.7\\libraries\\DigisparkCDC",
-                "${env:LOCALAPPDATA}\\Arduino15\\packages\\digistump\\hardware\\avr\\1.6.7\\**"
+                "${config:arduino.path}\\hardware\\tools\\avr\\avr\\include"
             ],
             "forcedInclude": [],
             "intelliSenseMode": "msvc-x64",
             "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.22.27905/bin/Hostx64/x64/cl.exe",
             "cStandard": "c11",
-            "cppStandard": "c++17"
+            "cppStandard": "c++17",
+            "defines": ["__AVR_ATtiny85__"]
         }
     ],
     "version": 4
