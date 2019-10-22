@@ -1,5 +1,9 @@
 #include <Arduino.h>
-#include "usbdrv/usbdrv.h"
+
+extern "C" {
+  #include "usbdrv/osccal.h"
+  #include "usbdrv/usbdrv.h"
+}
 
 #define DATA_PIN 0
 #define ENABLE_PIN 5
@@ -10,8 +14,12 @@
 
 uint8_t rowHit;
 uint8_t debounce;
+uint8_t reportBuffer[2];
 
-PROGMEM const char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = { /* USB report descriptor */
+void readRow ();
+uint8_t readColumn ();
+
+PROGMEM const char usbHidReportDescriptor[] = { /* USB report descriptor */
   0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
   0x09, 0x06,                    // USAGE (Keyboard)
   0xa1, 0x01,                    // COLLECTION (Application)
@@ -97,4 +105,27 @@ uint8_t readColumn () {
   }
 
   return value;
+}
+
+USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8]) {
+  usbRequest_t *rq = (usbRequest_t *)(data);
+
+  usbMsgPtr = reportBuffer;
+  if ((rq->bmRequestType & USBRQ_TYPE_MASK) == USBRQ_TYPE_CLASS) {
+    if (rq->bRequest == USBRQ_HID_GET_REPORT) {
+      return 0;
+    } else if (rq->bRequest == USBRQ_HID_GET_IDLE) {
+      return 0;
+    } else if (rq->bRequest == USBRQ_HID_GET_PROTOCOL) {
+      return 0;
+    } else if (rq->bRequest == USBRQ_HID_SET_REPORT) {
+      return 0;
+    } else if (rq->bRequest == USBRQ_HID_SET_IDLE) {
+      return 0;
+    } else if (rq->bRequest == USBRQ_HID_SET_PROTOCOL) {
+      return 0;
+    }
+  }
+
+  return 0;
 }

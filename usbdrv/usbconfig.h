@@ -163,6 +163,10 @@ section at the end of this file).
  * (besides debugging) is to flash a status LED on each packet.
  */
 /* #define USB_RESET_HOOK(resetStarts)     if(!resetStarts){hadUsbReset();} */
+#ifndef __ASSEMBLER__
+  #include <avr/interrupt.h>  // for sei()
+#endif
+#define USB_RESET_HOOK(resetStarts) if(!resetStarts){ cli(); calibrateOscillator(); sei(); }
 /* This macro is a hook if you need to know when an USB RESET occurs. It has
  * one parameter which distinguishes between the start of RESET state and its
  * end.
@@ -204,7 +208,6 @@ section at the end of this file).
  * for each control- and out-endpoint to check for duplicate packets.
  */
 #define USB_CFG_HAVE_MEASURE_FRAME_LENGTH   1
-#include "osccal.h"
 /* define this macro to 1 if you want the function usbMeasureFrameLength()
  * compiled in. This function can be used to calibrate the AVR's RC oscillator.
  */
@@ -280,7 +283,7 @@ section at the end of this file).
  * HID class is 3, no subclass and protocol required (but may be useful!)
  * CDC class is 2, use subclass 2 and protocol 1 for ACM
  */
-#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    36
+#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    0
 /* Define this to the length of the HID report descriptor, if you implement
  * an HID device. Otherwise don't define it or define it to 0.
  * If you use this define, you must add a PROGMEM character array named
@@ -358,7 +361,7 @@ section at the end of this file).
 
 
 // #define usbMsgPtr_t unsigned short
-#define usbMsgPtr_t uint8_t
+#define usbMsgPtr_t uint8_t *
 /* If usbMsgPtr_t is not defined, it defaults to 'uchar *'. We define it to
  * a scalar type here because gcc generates slightly shorter code for scalar
  * arithmetics than for pointer arithmetics. Remove this define for backward

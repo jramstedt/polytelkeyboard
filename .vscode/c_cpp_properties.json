@@ -9,10 +9,32 @@
             ],
             "forcedInclude": [],
             "intelliSenseMode": "msvc-x64",
-            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.22.27905/bin/Hostx64/x64/cl.exe",
+            "compilerPath": "\"C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.22.27905/bin/Hostx64/x64/cl.exe\"",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "defines": ["__AVR_ATtiny85__"]
+            "defines": [
+                "__AVR_ATtiny85__"
+            ]
+        },
+        {
+            "name": "AVR",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${env:LOCALAPPDATA}\\Arduino15\\packages\\digistump\\tools\\**",
+                "${env:LOCALAPPDATA}\\Arduino15\\packages\\digistump\\hardware\\avr\\1.6.7\\cores\\tiny\\**",
+                "${config:arduino.path}\\hardware\\tools\\avr\\avr\\include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "__AVR_ATtiny85__"
+            ],
+            "windowsSdkVersion": "10.0.18362.0",
+            "compilerPath": "D:\\tools\\arduino-1.8.10\\hardware\\tools\\avr\\bin\\avr-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x86"
         }
     ],
     "version": 4

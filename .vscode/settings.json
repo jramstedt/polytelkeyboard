@@ -1,4 +1,5 @@
 {
+  "arduino.enableUSBDetection": false,
   "arduino.additionalUrls": [
     "http://digistump.com/package_digistump_index.json"
   ],
