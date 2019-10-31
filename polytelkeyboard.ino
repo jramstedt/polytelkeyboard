@@ -15,8 +15,13 @@ extern "C" {
 
 #define DEBOUNCE_LIMIT 128
 
+#define PROTOCOL_BOOT 0
+#define PROTOCOL_REPORT 1
+
 uint8_t rowHit;
 uint8_t debounce;
+
+uint8_t protocol = PROTOCOL_REPORT;
 
 void readRow ();
 uint8_t readColumn (const uint8_t column[]);
@@ -52,6 +57,10 @@ PROGMEM const uint8_t charMap[8][6] = {
   {KEY_F, KEY_D, KEY_ENTER, KEY_APOSTROPHE, 0x00, 0x00},
 };
 
+struct CommonUsbMsg {
+  uint8_t modifierMask;
+};
+
 /** boot supported */
 PROGMEM const char usbHidReportDescriptor[] = {
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
@@ -78,17 +87,45 @@ PROGMEM const char usbHidReportDescriptor[] = {
     0xc0                           // END_COLLECTION
 };
 
-uint8_t emptyFlushed;
-uint8_t keysPressed;
-uint8_t modifiersDirty;
-
-struct BootUsbMsg {
-  uint8_t modifierMask;
+struct BootUsbMsg : CommonUsbMsg {
   uint8_t oemReserved;
   uint8_t scanCodes[6];
 };
 
-struct BootUsbMsg reportBuffer;
+/** nkro supported
+PROGMEM const char usbHidReportDescriptor[] = {
+    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+    0x09, 0x06,                    // USAGE (Keyboard)
+    0xa1, 0x01,                    // COLLECTION (Application)
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
+    0x19, 0xe0,                    //   USAGE_MINIMUM (Keyboard LeftControl)
+    0x29, 0xe7,                    //   USAGE_MAXIMUM (Keyboard Right GUI)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
+    0x75, 0x01,                    //   REPORT_SIZE (1)
+    0x95, 0x08,                    //   REPORT_COUNT (8)
+    0x81, 0x02,                    //   INPUT (Data,Var,Abs)
+    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
+    0x29, 0xa4,                    //   USAGE_MAXIMUM (Keyboard ExSel)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
+    0x75, 0x01,                    //   REPORT_SIZE (1)
+    0x95, 0xe8,                    //   REPORT_COUNT (232)
+    0x81, 0x02,                    //   INPUT (Data,Var,Abs)
+    0xc0                           // END_COLLECTION
+};
+*/
+
+struct NKROUsbMsg : CommonUsbMsg {
+  uint8_t keyMask[29];
+};
+
+uint8_t emptyFlushed;
+uint8_t keysPressed;
+uint8_t modifiersDirty;
+
+size_t reportBufferSize;
+uint8_t *reportBuffer;
 
 void setup()
 {
@@ -100,8 +137,10 @@ void setup()
   cli();
   usbDeviceDisconnect();
 
-  memset(&reportBuffer, 0, sizeof(reportBuffer));
-  
+  reportBuffer = (uint8_t *)malloc(max(sizeof(BootUsbMsg), sizeof(NKROUsbMsg)));
+  reportBufferSize = sizeof(BootUsbMsg);  
+  memset(reportBuffer, 0, reportBufferSize);
+
   _delay_ms(250);
   usbDeviceConnect();
   usbInit();
@@ -124,14 +163,15 @@ void loop()
     --debounce;
 
   if (debounce == DEBOUNCE_LIMIT || rowHit) {
-    uint8_t prevModifiers = reportBuffer.modifierMask;
+    CommonUsbMsg *commonReportBuffer = (CommonUsbMsg *)reportBuffer;
+    uint8_t prevModifiers = commonReportBuffer->modifierMask;
 
     digitalWrite(ENABLE_PIN, LOW);
     readRow();
     digitalWrite(ENABLE_PIN, HIGH);
     debounce = 0;
     
-    modifiersDirty |= reportBuffer.modifierMask ^ prevModifiers;
+    modifiersDirty |= commonReportBuffer->modifierMask ^ prevModifiers;
   }
 
   flushBuffer();
@@ -175,17 +215,46 @@ void registerKey (const uint8_t pressed, const uint8_t usbScanCode) {
   if(usbScanCode < KEY_LEFTCONTROL) {
     if (!pressed) return;
 
-    if (keysPressed == sizeof(reportBuffer.scanCodes))
-      memset(reportBuffer.scanCodes, KEY_ErrorRollOver, sizeof(reportBuffer.scanCodes));
-    else
-      reportBuffer.scanCodes[keysPressed++] = usbScanCode;
+      BootUsbMsg *bootReportBuffer = (BootUsbMsg *)reportBuffer; 
+
+      if (keysPressed == sizeof(bootReportBuffer->scanCodes))
+        memset(bootReportBuffer->scanCodes, KEY_ErrorRollOver, sizeof(bootReportBuffer->scanCodes));
+      else
+        bootReportBuffer->scanCodes[keysPressed++] = usbScanCode;
+
+    /*
+    if (protocol == PROTOCOL_BOOT) {
+      BootUsbMsg *bootReportBuffer = (BootUsbMsg *)reportBuffer; 
+
+      if (keysPressed == sizeof(bootReportBuffer->scanCodes))
+        memset(bootReportBuffer->scanCodes, KEY_ErrorRollOver, sizeof(bootReportBuffer->scanCodes));
+      else
+        bootReportBuffer->scanCodes[keysPressed++] = usbScanCode;
+    } else {
+      NKROUsbMsg *nkroReportBuffer = (NKROUsbMsg *)reportBuffer;
+
+      nkroReportBuffer->keyMask[usbScanCode >> 3] |= 1 << (usbScanCode & 0b111);
+      ++keysPressed;
+    }*/
+
   } else if (usbScanCode <= KEY_RIGHTGUI) { // Modifier
     uint8_t bitIndex = usbScanCode - KEY_LEFTCONTROL;
+    
+    CommonUsbMsg *commonReportBuffer = (CommonUsbMsg *)reportBuffer;
 
     if (pressed)
-      reportBuffer.modifierMask |= 1 << bitIndex;
+      commonReportBuffer->modifierMask |= 1 << bitIndex;
     else
-      reportBuffer.modifierMask &= ~(1 << bitIndex);
+      commonReportBuffer->modifierMask &= ~(1 << bitIndex);
+
+    /*
+    CommonUsbMsg *commonReportBuffer = (CommonUsbMsg *)reportBuffer;
+
+    if (pressed)
+      commonReportBuffer->modifierMask |= 1 << bitIndex;
+    else
+      commonReportBuffer->modifierMask &= ~(1 << bitIndex);
+    */
   }
 }
 
@@ -197,34 +266,73 @@ void flushBuffer () {
   if (!keysActive && emptyFlushed) return;
 
   if (usbInterruptIsReady()) {
-    usbSetInterrupt((unsigned char *)&reportBuffer, sizeof(reportBuffer));
+    usbSetInterrupt(reportBuffer, reportBufferSize);
     emptyFlushed = !keysActive;
     modifiersDirty = 0;
   }
 
-  memset(reportBuffer.scanCodes, KEY_NULL, sizeof(reportBuffer.scanCodes));
+  // Zero data portion of the buffer
+  memset(reportBuffer+sizeof(CommonUsbMsg), 0, reportBufferSize - sizeof(CommonUsbMsg));
   keysPressed = 0;
 }
 
 USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8]) {
   usbRequest_t *rq = (usbRequest_t *)(data);
-
-  usbMsgPtr = (uint8_t *)&reportBuffer;
+  
   if ((rq->bmRequestType & USBRQ_TYPE_MASK) == USBRQ_TYPE_CLASS) {
     if (rq->bRequest == USBRQ_HID_GET_REPORT) {
-      return 0;
+      usbMsgPtr = reportBuffer;
+      return reportBufferSize;
     } else if (rq->bRequest == USBRQ_HID_GET_IDLE) {
       return 0;
     } else if (rq->bRequest == USBRQ_HID_GET_PROTOCOL) {
-      return 0;
+      usbMsgPtr = &protocol;
+      return sizeof(protocol);
     } else if (rq->bRequest == USBRQ_HID_SET_REPORT) {
       return 0;
     } else if (rq->bRequest == USBRQ_HID_SET_IDLE) {
       return 0;
     } else if (rq->bRequest == USBRQ_HID_SET_PROTOCOL) {
+      protocol = rq->wValue.bytes[1];
+
+      /*
+      if (protocol == PROTOCOL_BOOT)
+        reportBufferSize = sizeof(BootUsbMsg);
+      else
+        reportBufferSize = sizeof(NKROUsbMsg);
+      */
+     
+      memset(reportBuffer, 0, reportBufferSize);
+
       return 0;
     }
   }
 
   return 0;
 }
+
+/*
+USB_PUBLIC usbMsgLen_t usbFunctionDescriptor(struct usbRequest *rq) {
+  if ((rq->bmRequestType & USBRQ_TYPE_MASK) == USBRQ_TYPE_STANDARD) {
+    if (rq->bRequest == USBRQ_GET_DESCRIPTOR) {
+      if (rq->wValue.bytes[1] == USBDESCR_HID) {
+        if (protocol == PROTOCOL_BOOT) {
+
+        } else {
+
+        }
+      } else if (rq->wValue.bytes[1] == USBDESCR_HID_REPORT) {
+        if (protocol == PROTOCOL_BOOT) {
+          usbMsgPtr = (usbMsgPtr_t)usbDescriptorHidReportBoot;
+          return sizeof(usbDescriptorHidReportBoot);
+        } else {
+          usbMsgPtr = (usbMsgPtr_t)usbDescriptorHidReportNKRO;
+          return sizeof(usbDescriptorHidReportNKRO);
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+*/
