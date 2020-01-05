@@ -9,9 +9,9 @@ extern "C" {
 #include "USB_scan_codes.h"
 
 #define DATA_PIN 0
-#define ENABLE_PIN 5
-#define COLUMN_PIN 1
-#define ROW_PIN 2
+#define ENABLE_PIN 1
+#define COLUMN_PIN 2
+#define ROW_PIN 5
 
 #define DEBOUNCE_LIMIT 128
 
@@ -21,7 +21,7 @@ extern "C" {
 uint8_t rowHit;
 uint8_t debounce;
 
-uint8_t protocol = PROTOCOL_REPORT;
+uint8_t protocol = PROTOCOL_BOOT;
 
 void readRow ();
 uint8_t readColumn (const uint8_t column[]);
@@ -102,22 +102,23 @@ PROGMEM const char usbHidReportDescriptor[] = {
     0x29, 0xe7,                    //   USAGE_MAXIMUM (Keyboard Right GUI)
     0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
     0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
-    0x75, 0x01,                    //   REPORT_SIZE (1)
     0x95, 0x08,                    //   REPORT_COUNT (8)
+    0x75, 0x01,                    //   REPORT_SIZE (1)
     0x81, 0x02,                    //   INPUT (Data,Var,Abs)
+
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
     0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
-    0x29, 0xa4,                    //   USAGE_MAXIMUM (Keyboard ExSel)
+    0x29, 0xdf,                    //   USAGE_MAXIMUM (Keyboard 231)
     0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
     0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
+    0x95, 0xe0,                    //   REPORT_COUNT (232)
     0x75, 0x01,                    //   REPORT_SIZE (1)
-    0x95, 0xe8,                    //   REPORT_COUNT (232)
     0x81, 0x02,                    //   INPUT (Data,Var,Abs)
     0xc0                           // END_COLLECTION
 };
 */
-
 struct NKROUsbMsg : CommonUsbMsg {
-  uint8_t keyMask[29];
+  uint8_t keyMask[28];
 };
 
 uint8_t emptyFlushed;
@@ -137,7 +138,8 @@ void setup()
   cli();
   usbDeviceDisconnect();
 
-  reportBuffer = (uint8_t *)malloc(max(sizeof(BootUsbMsg), sizeof(NKROUsbMsg)));
+  //reportBuffer = (uint8_t *)malloc(max(sizeof(BootUsbMsg), sizeof(NKROUsbMsg)));
+  reportBuffer = (uint8_t *)malloc(sizeof(BootUsbMsg));
   reportBufferSize = sizeof(BootUsbMsg);  
   memset(reportBuffer, 0, reportBufferSize);
 
@@ -215,14 +217,6 @@ void registerKey (const uint8_t pressed, const uint8_t usbScanCode) {
   if(usbScanCode < KEY_LEFTCONTROL) {
     if (!pressed) return;
 
-      BootUsbMsg *bootReportBuffer = (BootUsbMsg *)reportBuffer; 
-
-      if (keysPressed == sizeof(bootReportBuffer->scanCodes))
-        memset(bootReportBuffer->scanCodes, KEY_ErrorRollOver, sizeof(bootReportBuffer->scanCodes));
-      else
-        bootReportBuffer->scanCodes[keysPressed++] = usbScanCode;
-
-    /*
     if (protocol == PROTOCOL_BOOT) {
       BootUsbMsg *bootReportBuffer = (BootUsbMsg *)reportBuffer; 
 
@@ -235,8 +229,7 @@ void registerKey (const uint8_t pressed, const uint8_t usbScanCode) {
 
       nkroReportBuffer->keyMask[usbScanCode >> 3] |= 1 << (usbScanCode & 0b111);
       ++keysPressed;
-    }*/
-
+    }
   } else if (usbScanCode <= KEY_RIGHTGUI) { // Modifier
     uint8_t bitIndex = usbScanCode - KEY_LEFTCONTROL;
     
@@ -246,15 +239,6 @@ void registerKey (const uint8_t pressed, const uint8_t usbScanCode) {
       commonReportBuffer->modifierMask |= 1 << bitIndex;
     else
       commonReportBuffer->modifierMask &= ~(1 << bitIndex);
-
-    /*
-    CommonUsbMsg *commonReportBuffer = (CommonUsbMsg *)reportBuffer;
-
-    if (pressed)
-      commonReportBuffer->modifierMask |= 1 << bitIndex;
-    else
-      commonReportBuffer->modifierMask &= ~(1 << bitIndex);
-    */
   }
 }
 
@@ -293,16 +277,16 @@ USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8]) {
     } else if (rq->bRequest == USBRQ_HID_SET_IDLE) {
       return 0;
     } else if (rq->bRequest == USBRQ_HID_SET_PROTOCOL) {
-      protocol = rq->wValue.bytes[1];
-
       /*
+      protocol = rq->wValue.bytes[0];
+
       if (protocol == PROTOCOL_BOOT)
         reportBufferSize = sizeof(BootUsbMsg);
       else
         reportBufferSize = sizeof(NKROUsbMsg);
-      */
-     
+
       memset(reportBuffer, 0, reportBufferSize);
+      */
 
       return 0;
     }
